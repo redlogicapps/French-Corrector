@@ -43,7 +43,9 @@ Voici le texte à corriger :
       }
     });
     
-    let jsonStr = response.text.trim();
+    // Get the text content from the response
+    const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    let jsonStr = responseText.trim();
     const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
     const match = jsonStr.match(fenceRegex);
     if (match && match[2]) {

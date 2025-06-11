@@ -1,58 +1,94 @@
 
 import React, { useState, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { TextAreaInput } from './components/TextAreaInput';
 import { Button } from './components/Button';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { Alert } from './components/Alert';
 import { CopyButton } from './components/CopyButton';
-import { correctFrenchText } from './services/geminiService';
+import { correctFrenchText } from './src/services/geminiService';
+import { CorrectionResult } from './src/types';
+import { saveCorrection } from './src/services/correctionService';
 import { DEFAULT_PLACEHOLDER_TEXT } from './constants';
-import { CorrectionResult } from './types';
+import { Navbar } from './src/components/Navbar';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { Login } from './src/components/auth/Login';
+import { History } from './src/pages/History';
+import { ProtectedRoute } from './src/components/ProtectedRoute';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { currentUser } = useAuth();
+  const location = useLocation();
+  
+  // Redirect to login if not authenticated and not on auth pages
+  if (!currentUser && !['/login', '/signup'].includes(location.pathname)) {
+    return <Navigate to="/login" replace />;
+  }
   const [inputText, setInputText] = useState<string>('');
   const [correctedText, setCorrectedText] = useState<string>('');
-  const [explanation, setExplanation] = useState<string>('');
+  const [corrections, setCorrections] = useState<Array<{
+    original: string;
+    corrected: string;
+    explanation: string;
+  }>>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleInputChange = useCallback((event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputText(event.target.value);
     if (correctedText) setCorrectedText('');
-    if (explanation) setExplanation('');
+    if (corrections.length > 0) setCorrections([]);
     if (error) setError(null);
-  }, [correctedText, explanation, error]);
+  }, [correctedText, corrections.length, error]);
 
   const handleSubmitCorrection = useCallback(async () => {
     if (!inputText.trim()) {
       setError("Veuillez entrer du texte à corriger.");
       return;
     }
+    
+    if (!currentUser) {
+      setError("Veuillez vous connecter pour enregistrer vos corrections.");
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     setCorrectedText('');
-    setExplanation('');
+    setCorrections([]);
 
     try {
-      const result: CorrectionResult = await correctFrenchText(inputText);
+      const result = await correctFrenchText(inputText);
       setCorrectedText(result.correctedText);
-      setExplanation(result.explanation);
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Une erreur inconnue est survenue.");
+      setCorrections(result.corrections || []);
+      
+      // Save the correction to Firestore if there are corrections
+      if (result.corrections && result.corrections.length > 0) {
+        try {
+          await saveCorrection({
+            originalText: inputText,
+            correctedText: result.correctedText,
+            corrections: result.corrections
+          });
+        } catch (saveError) {
+          console.error('Error saving correction:', saveError);
+          // Don't show error to user for save failure
+        }
       }
-      console.error(err);
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Une erreur inconnue est survenue.";
+      setError(errorMessage);
+      console.error('Error in correction:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [inputText]);
+  }, [inputText, currentUser]);
 
   const handleUseSampleText = useCallback(() => {
     setInputText(DEFAULT_PLACEHOLDER_TEXT);
     setCorrectedText('');
-    setExplanation('');
+    setCorrections([]);
     setError(null);
   }, []);
 
@@ -64,6 +100,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-700 text-slate-100 flex flex-col items-center p-4 sm:p-8 selection:bg-sky-500 selection:text-white">
+      <Navbar />
       <header className="w-full max-w-5xl mb-8 text-center">
         <h1 className="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-cyan-300">
           Correcteur de Français IA
@@ -134,12 +171,28 @@ const App: React.FC = () => {
           </div>
         </div>
         
-        {/* Explanation Section - Placed outside the 2-column grid but within the main card */}
-        {!isLoading && !error && explanation && (
+        {/* Corrections List Section */}
+        {!isLoading && !error && corrections.length > 0 && (
           <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-slate-700">
-            <h3 className="text-xl font-semibold text-amber-400 mb-3">Explication des Corrections</h3>
-            <div className="bg-slate-700 p-4 rounded-lg prose prose-invert prose-sm max-w-none text-slate-300 whitespace-pre-wrap">
-              {explanation}
+            <h3 className="text-xl font-semibold text-amber-400 mb-4">Corrections Apportées</h3>
+            <div className="space-y-4">
+              {corrections.map((correction, index) => (
+                <div key={index} className="bg-slate-700/50 p-4 rounded-lg border-l-4 border-amber-500">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Original :</p>
+                      <p className="text-red-300 line-through">{correction.original}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Corrigé :</p>
+                      <p className="text-green-300 font-medium">{correction.corrected}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-slate-600">
+                    <p className="text-sm text-slate-300">{correction.explanation}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -153,5 +206,22 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+const App: React.FC = () => {
+  return (
+    <Router>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<AppContent />} />
+            <Route path="/history" element={<History />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </AuthProvider>
+    </Router>
+  );
+}
 
 export default App;
