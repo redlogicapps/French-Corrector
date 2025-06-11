@@ -1,0 +1,6 @@
+{
+  "name": "French Text Corrector AI",
+  "description": "An AI-powered application to correct French text for grammar, spelling, and style, making it suitable for professional communication.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
