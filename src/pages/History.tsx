@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { getUserCorrections } from '../services/correctionService';
 import { useAuth } from '../contexts/AuthContext';
-import { Correction } from '../services/correctionService';
+import { StoredCorrection } from '../types';
 
 export function History() {
-  const [corrections, setCorrections] = useState<Correction[]>([]);
+  const [corrections, setCorrections] = useState<StoredCorrection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { currentUser } = useAuth();

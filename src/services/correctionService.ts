@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs, orderBy, Timestamp, DocumentData } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { SaveCorrectionParams, StoredCorrection } from '../types';
 

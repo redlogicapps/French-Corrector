@@ -7,7 +7,6 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 import { Alert } from './components/Alert';
 import { CopyButton } from './components/CopyButton';
 import { correctFrenchText } from './src/services/geminiService';
-import { CorrectionResult } from './src/types';
 import { saveCorrection } from './src/services/correctionService';
 import { DEFAULT_PLACEHOLDER_TEXT } from './constants';
 import { Navbar } from './src/components/Navbar';
