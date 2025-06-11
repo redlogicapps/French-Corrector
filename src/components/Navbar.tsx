@@ -1,5 +1,6 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { NAV_ITEMS } from '../types/navigation';
 
 export function Navbar() {
   const { currentUser, logout } = useAuth();
@@ -10,62 +11,62 @@ export function Navbar() {
       await logout();
       navigate('/login');
     } catch (error) {
-      console.error('Failed to log out:', error);
+      console.error('Logout failed:', error);
     }
   };
 
+  const filteredNavItems = NAV_ITEMS.filter(
+    (item) => !item.requiresAuth || (item.requiresAuth && currentUser)
+  );
+
   return (
-    <nav className="bg-white shadow-sm">
+    <nav className="bg-slate-800 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex
-          ">
-            <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="text-xl font-bold text-indigo-600">
-                French Corrector
-              </Link>
-            </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              <Link
-                to="/"
-                className="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+        <div className="flex justify-between h-16 items-center">
+          {/* Left side navigation */}
+          <div className="flex items-center space-x-6">
+            {filteredNavItems.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }: { isActive: boolean }) => 
+                  `px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive 
+                      ? 'text-white bg-slate-700' 
+                      : 'text-blue-200 hover:text-white hover:bg-slate-700'
+                  }`
+                }
               >
-                Home
-              </Link>
-              {currentUser && (
-                <Link
-                  to="/history"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  History
-                </Link>
-              )}
-            </div>
+                {item.name}
+              </NavLink>
+            ))}
           </div>
-          <div className="hidden sm:ml-6 sm:flex sm:items-center">
+
+          {/* Right side user controls */}
+          <div className="flex items-center">
             {currentUser ? (
-              <div className="flex items-center">
-                <span className="text-sm text-gray-700 mr-4">
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-blue-100">
                   {currentUser.email}
                 </span>
                 <button
                   onClick={handleLogout}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Logout
                 </button>
               </div>
             ) : (
-              <div className="flex space-x-4">
+              <div className="flex space-x-3">
                 <Link
                   to="/login"
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="px-4 py-2 rounded-md text-sm font-medium text-blue-200 hover:bg-slate-700 hover:text-white transition-colors"
                 >
                   Log in
                 </Link>
                 <Link
                   to="/signup"
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Sign up
                 </Link>

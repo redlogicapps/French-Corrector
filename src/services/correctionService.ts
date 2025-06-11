@@ -1,13 +1,31 @@
 import { collection, addDoc, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { SaveCorrectionParams, StoredCorrection } from '../types';
+import { SaveCorrectionParams, StoredCorrection, CorrectionResult } from '../types';
+import { correctFrenchText } from './geminiService';
 
 const CORRECTIONS_COLLECTION = 'corrections';
 
 /**
- * Saves a correction to Firestore
- * @param correction The correction data to save
- * @returns A promise that resolves to the saved correction with ID and timestamps
+ * Corrects the given text using the Gemini service.
+ * @param text The text to correct.
+ * @returns A promise that resolves to the corrected text and explanation.
+ */
+export const correctText = async (text: string): Promise<CorrectionResult> => {
+  try {
+    // Directly call the Gemini service function
+    const result = await correctFrenchText(text);
+    return result;
+  } catch (error) {
+    console.error('Error correcting text via Gemini service:', error);
+    // Re-throw a more specific error to be handled by the UI
+    throw new Error('Failed to get correction from the AI service.');
+  }
+};
+
+/**
+ * Saves a correction to Firestore.
+ * @param correction The correction data to save.
+ * @returns A promise that resolves to the saved correction with ID and timestamps.
  */
 export const saveCorrection = async (
   correction: SaveCorrectionParams
@@ -37,14 +55,16 @@ export const saveCorrection = async (
 };
 
 /**
- * Gets all corrections for the current user
- * @returns A promise that resolves to an array of the user's corrections
+ * Gets all corrections for the current user.
+ * @returns A promise that resolves to an array of the user's corrections.
  */
 export const getUserCorrections = async (): Promise<StoredCorrection[]> => {
   try {
     const userId = auth.currentUser?.uid;
     if (!userId) {
-      throw new Error('User not authenticated');
+      // Return an empty array or throw an error, depending on desired behavior
+      // for unauthenticated users.
+      return [];
     }
 
     const q = query(
@@ -54,20 +74,22 @@ export const getUserCorrections = async (): Promise<StoredCorrection[]> => {
     );
 
     const querySnapshot = await getDocs(q);
-    
-    return querySnapshot.docs.map((doc) => {
-      const data = doc.data() as Omit<StoredCorrection, 'id' | 'createdAt'> & { 
-        createdAt: Timestamp;
-      };
-      
-      return {
+    const corrections: StoredCorrection[] = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      corrections.push({
         id: doc.id,
-        ...data,
-        createdAt: data.createdAt.toDate(),
-      };
+        userId: data.userId,
+        originalText: data.originalText,
+        correctedText: data.correctedText,
+        corrections: data.corrections,
+        createdAt: (data.createdAt as Timestamp).toDate(),
+      });
     });
+
+    return corrections;
   } catch (error) {
-    console.error('Error fetching corrections:', error);
+    console.error('Error getting user corrections:', error);
     throw error;
   }
 };
