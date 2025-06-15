@@ -1,5 +1,6 @@
 import { useEffect, useState, Fragment } from 'react';
 import { Link } from 'react-router-dom';
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import { Dialog, Transition } from '@headlessui/react';
 import { getUserCorrections, deleteCorrection } from '../services/correctionService';
 import { useAuth } from '../contexts/AuthContext';
@@ -81,34 +82,28 @@ export function History() {
   const [error, setError] = useState('');
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [selectedCorrection, setSelectedCorrection] = useState<StoredCorrection | null>(null);
+  const [correctionToDelete, setCorrectionToDelete] = useState<{ id: string } | null>(null);
   const { currentUser } = useAuth();
 
-  const handleDeleteCorrection = async (correctionId: string) => {
-    console.log('Deleting correction with ID:', correctionId);
-    if (!correctionId) {
+  const handleDeleteCorrection = async () => {
+    if (!correctionToDelete?.id) {
       console.error('No correction ID provided');
       return;
     }
+
+    const correctionId = correctionToDelete.id;
     
     try {
-      console.log('Setting isDeleting state');
       setIsDeleting(correctionId);
-      
-      console.log('Calling deleteCorrection service');
       await deleteCorrection(correctionId);
       
-      console.log('Updating local state after deletion');
       // Remove the deleted correction from the local state
-      setCorrections(prev => {
-        const updated = prev.filter(c => c.id !== correctionId);
-        console.log('Updated corrections:', updated);
-        return updated;
-      });
+      setCorrections(prev => prev.filter(c => c.id !== correctionId));
+      setCorrectionToDelete(null);
     } catch (error) {
-      console.error('Error in handleDeleteCorrection:', error);
+      console.error('Error deleting correction:', error);
       setError('Failed to delete the correction. Please try again.');
     } finally {
-      console.log('Clearing isDeleting state');
       setIsDeleting(null);
     }
   };
@@ -201,12 +196,12 @@ export function History() {
               >
                 View details
               </button>
-              <button 
+              <button
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (correction.id && window.confirm('Are you sure you want to delete this correction?')) {
-                    handleDeleteCorrection(correction.id);
+                  if (correction.id) {
+                    setCorrectionToDelete({ id: correction.id });
                   }
                 }}
                 className="text-sm font-medium text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -226,6 +221,11 @@ export function History() {
       <h1 className="text-3xl font-bold text-white mb-8">Correction History</h1>
       {renderContent()}
       <CorrectionDetailModal correction={selectedCorrection} onClose={() => setSelectedCorrection(null)} />
+      <ConfirmDeleteModal 
+        isOpen={!!correctionToDelete}
+        onClose={() => setCorrectionToDelete(null)}
+        onConfirm={handleDeleteCorrection}
+      />
     </div>
   );
 }
