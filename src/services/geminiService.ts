@@ -31,10 +31,9 @@ export const correctFrenchText = async (text: string, retries = 3, delayMs = 100
       
       // The prompt for the AI
       const prompt = `
-        You are a professional French language tutor. Your task is to correct the following French text. 
-        Provide the corrected text and a detailed list of all corrections made.
+        Corrige le texte français suivant. Concentre-toi sur la grammaire, l'orthographe et la syntaxe pour un usage professionnel (e-mails, messages).
         
-        Text to correct: "${text}"
+        Voici le texte à corriger : "${text}"
         
         Respond in this exact JSON format:
         {
@@ -43,6 +42,7 @@ export const correctFrenchText = async (text: string, retries = 3, delayMs = 100
             {
               "original": "original text that was changed",
               "corrected": "corrected version of the text",
+              "shortExplanation": "short explanation of why this correction was made",
               "explanation": "detailed explanation of why this correction was made"
             },
             // Include all corrections in this array
@@ -50,7 +50,6 @@ export const correctFrenchText = async (text: string, retries = 3, delayMs = 100
         }
         
         Important:
-        - List EVERY correction made, no matter how small
         - Include spelling, grammar, and punctuation corrections
         - Be specific in your explanations
         - Only respond with the JSON object, nothing else`;
@@ -59,7 +58,7 @@ export const correctFrenchText = async (text: string, retries = 3, delayMs = 100
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const responseText = response.text();
-      
+      console.log(responseText);
       try {
         // Clean the response text by removing markdown code block syntax if present
         let cleanResponse = responseText.trim();

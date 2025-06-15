@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { correctText, saveCorrection } from '../services/correctionService';
 import { CorrectionResult } from '../types';
+import { CorrectionAccordion } from '../components/CorrectionAccordion';
 
 export const Dashboard: React.FC = () => {
   const [inputText, setInputText] = useState('');
@@ -59,13 +60,28 @@ export const Dashboard: React.FC = () => {
                 <p className="text-slate-400">Correcting...</p>
               </div>
             ) : result ? (
-              <p>{result.correctedText}</p>
+              <p className="whitespace-pre-wrap">{result.correctedText}</p>
             ) : (
               <p className="text-slate-500">The correction will appear here.</p>
             )}
           </div>
         </div>
       </div>
+
+      {/* Corrections Section */}
+      {result?.corrections && result.corrections.length > 0 && (
+        <div className="mt-6 bg-slate-800 p-6 rounded-lg shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-amber-300">Corrections</h2>
+            <span className="px-3 py-1 text-xs font-medium bg-amber-500/20 text-amber-300 rounded-full">
+              {result.corrections.length} {result.corrections.length === 1 ? 'correction' : 'corrections'} found
+            </span>
+          </div>
+          <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+            <CorrectionAccordion corrections={result.corrections} />
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mt-6 bg-red-500/20 border border-red-500/30 text-red-300 px-4 py-3 rounded-lg text-center">

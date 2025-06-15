@@ -2,6 +2,7 @@
 export interface Correction {
   original: string;
   corrected: string;
+  shortExplanation: string;
   explanation: string;
 }
 

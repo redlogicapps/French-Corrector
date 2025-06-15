@@ -50,9 +50,12 @@ const CorrectionDetailModal = ({ correction, onClose }: { correction: StoredCorr
                   </div>
                   <div>
                     <h4 className="font-semibold text-amber-300">Changes</h4>
-                    <ul className="list-disc list-inside mt-1 space-y-1">
+                    <ul className="list-disc list-inside mt-1 space-y-2">
                       {correction.corrections.map((c, index) => (
-                        <li key={index} className="text-slate-400 text-sm">{c.explanation}</li>
+                        <li key={index} className="text-slate-300 text-sm">
+                          <div className="font-medium">{c.shortExplanation}</div>
+                          <div className="text-slate-400 text-xs mt-0.5">{c.explanation}</div>
+                        </li>
                       ))}
                     </ul>
                   </div>
