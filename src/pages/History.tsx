@@ -6,6 +6,7 @@ import { getUserCorrections, deleteCorrection } from '../services/correctionServ
 import { useAuth } from '../contexts/AuthContext';
 import { StoredCorrection } from '../types';
 import { CorrectionAccordion } from '../components/CorrectionAccordion';
+import { format as formatDate, subDays, startOfDay, endOfDay, isWithinInterval, isValid } from 'date-fns';
 
 const CorrectionDetailModal = ({ correction, onClose }: { correction: StoredCorrection | null, onClose: () => void }) => {
   if (!correction) return null;
@@ -101,13 +102,25 @@ const CorrectionDetailModal = ({ correction, onClose }: { correction: StoredCorr
   );
 };
 
+// Date filter options
+const dateRanges = [
+  { label: 'Last 7 days', value: 7 },
+  { label: 'Last 30 days', value: 30 },
+  { label: 'Last 90 days', value: 90 },
+  { label: 'All time', value: 0 },
+  { label: 'Custom range', value: 'custom' },
+];
+
 export function History() {
   const [corrections, setCorrections] = useState<StoredCorrection[]>([]);
+  const [filteredCorrections, setFilteredCorrections] = useState<StoredCorrection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [selectedCorrection, setSelectedCorrection] = useState<StoredCorrection | null>(null);
   const [correctionToDelete, setCorrectionToDelete] = useState<{ id: string } | null>(null);
+  const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
+  const [selectedRange, setSelectedRange] = useState<number | 'custom'>(30);
   const { currentUser } = useAuth();
 
   const handleDeleteCorrection = async () => {
@@ -133,6 +146,40 @@ export function History() {
     }
   };
 
+  // Helper function to safely parse dates
+  const parseDate = (date: string | Date): Date => {
+    return date instanceof Date ? date : new Date(date);
+  };
+
+  // Always update filtered corrections when any filter changes
+  useEffect(() => {
+    if (!corrections.length) {
+      setFilteredCorrections([]);
+      return;
+    }
+    if (selectedRange === 'custom') {
+      if (dateRange.start && dateRange.end) {
+        const start = startOfDay(dateRange.start);
+        const end = endOfDay(dateRange.end);
+        setFilteredCorrections(
+          corrections.filter(correction => {
+            const correctionDate = parseDate(correction.createdAt);
+            return isWithinInterval(correctionDate, { start, end });
+          })
+        );
+      } else {
+        setFilteredCorrections([...corrections]); // Show all until both dates are set
+      }
+    } else if (selectedRange > 0) {
+      const startDate = subDays(new Date(), selectedRange);
+      setFilteredCorrections(
+        corrections.filter(correction => parseDate(correction.createdAt) >= startDate)
+      );
+    } else {
+      setFilteredCorrections([...corrections]);
+    }
+  }, [corrections, dateRange.start, dateRange.end, selectedRange]);
+
   useEffect(() => {
     const loadCorrections = async () => {
       if (!currentUser) {
@@ -155,6 +202,106 @@ export function History() {
     loadCorrections();
   }, [currentUser]);
 
+  const handleDateRangeChange = (value: number | 'custom') => {
+    setSelectedRange(value);
+    if (value !== 'custom') {
+      setDateRange({ start: null, end: null });
+      
+      if (value > 0) {
+        const startDate = subDays(new Date(), value);
+        setFilteredCorrections(corrections.filter(correction => 
+          parseDate(correction.createdAt) >= startDate
+        ));
+      } else {
+        setFilteredCorrections([...corrections]);
+      }
+    } else {
+      setDateRange({ start: null, end: null }); // Reset dates on custom selection
+      setFilteredCorrections([...corrections]); // Show all until both dates are set
+    }
+  };
+
+  const handleCustomDateChange = (type: 'start' | 'end', dateString: string) => {
+    const newDate = dateString ? new Date(dateString) : null;
+    setDateRange(prev => ({
+      ...prev,
+      [type]: newDate
+    }));
+  };
+  
+  const clearDateFilter = () => {
+    setSelectedRange(0);
+    setDateRange({ start: null, end: null });
+    setFilteredCorrections([...corrections]);
+  };
+
+  const renderFilterBar = () => (
+    <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-slate-800/50 p-4 rounded-lg border border-slate-700/50 mb-6">
+      <div className="flex-1">
+        <h2 className="text-lg font-medium text-white">Filter by Date</h2>
+        <p className="text-sm text-slate-400">
+          {selectedRange === 'custom' && dateRange.start && dateRange.end
+            ? `${isValid(dateRange.start) ? formatDate(dateRange.start, 'MMM d, yyyy') : ''} - ${isValid(dateRange.end) ? formatDate(dateRange.end, 'MMM d, yyyy') : ''}`
+            : selectedRange === 0
+            ? 'All time'
+            : `Last ${selectedRange} days`}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <div className="relative">
+          <select
+            value={selectedRange}
+            onChange={(e) => {
+              const val = e.target.value;
+              handleDateRangeChange(val === 'custom' ? 'custom' : Number(val));
+            }}
+            className="block w-full pl-3 pr-10 py-2 text-base border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-slate-700 text-white"
+          >
+            {dateRanges.map((range) => (
+              <option key={range.value} value={range.value}>
+                {range.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {/* Always show date pickers when custom is selected */}
+        {selectedRange === 'custom' && (
+          <div className="flex flex-col sm:flex-row gap-2 bg-slate-800 p-3 rounded-lg border border-slate-700">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">From</label>
+              <input
+                type="date"
+                value={dateRange.start && isValid(dateRange.start) ? formatDate(dateRange.start, 'yyyy-MM-dd') : ''}
+                onChange={(e) => handleCustomDateChange('start', e.target.value)}
+                className="block w-full px-3 py-2 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-slate-700 text-white"
+                max={dateRange.end && isValid(dateRange.end) ? formatDate(dateRange.end, 'yyyy-MM-dd') : formatDate(new Date(), 'yyyy-MM-dd')}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">To</label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={dateRange.end && isValid(dateRange.end) ? formatDate(dateRange.end, 'yyyy-MM-dd') : ''}
+                  onChange={(e) => handleCustomDateChange('end', e.target.value)}
+                  className="block w-full px-3 py-2 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-slate-700 text-white"
+                  min={dateRange.start && isValid(dateRange.start) ? formatDate(dateRange.start, 'yyyy-MM-dd') : undefined}
+                  max={formatDate(new Date(), 'yyyy-MM-dd')}
+                />
+                <button
+                  onClick={clearDateFilter}
+                  className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-md transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -172,78 +319,91 @@ export function History() {
       );
     }
 
-    if (corrections.length === 0) {
-      return (
-        <div className="text-center py-16">
-          <svg className="mx-auto h-12 w-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <h3 className="mt-4 text-lg font-semibold text-white">No corrections yet</h3>
-          <p className="mt-2 text-sm text-slate-400">Get started by correcting some French text on the dashboard.</p>
-          <div className="mt-6">
-            <Link
-              to="/dashboard"
-              className="inline-flex items-center px-6 py-3 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-slate-900"
-            >
-              <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-              </svg>
-              New Correction
-            </Link>
-          </div>
-        </div>
-      );
-    }
-
+    const displayCorrections = selectedRange !== 0 || dateRange.start || dateRange.end ? filteredCorrections : corrections;
+    
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {corrections.map((correction) => (
-          <div key={correction.id} className="bg-slate-800 rounded-lg shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300">
-            <div className="p-6">
-              <p className="text-sm text-slate-400 mb-2">
-                {new Date(correction.createdAt).toLocaleString()}
-              </p>
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-semibold text-blue-300">Original</h4>
-                  <p className="text-slate-300 text-sm truncate">{correction.originalText}</p>
+      <>
+        {renderFilterBar()}
+        {displayCorrections.length === 0 ? (
+          <div className="text-center py-16">
+            <svg className="mx-auto h-12 w-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <h3 className="mt-4 text-lg font-semibold text-white">No corrections found</h3>
+            <p className="mt-2 text-sm text-slate-400">{corrections.length === 0 ? 'Get started by correcting some French text on the dashboard.' : 'Try adjusting your filter or clearing the date range.'}</p>
+            {corrections.length === 0 && (
+              <div className="mt-6">
+                <Link
+                  to="/dashboard"
+                  className="inline-flex items-center px-6 py-3 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-slate-900"
+                >
+                  <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                  </svg>
+                  New Correction
+                </Link>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayCorrections.map((correction) => (
+              <div key={correction.id} className="bg-slate-800 rounded-lg shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300">
+                <div className="p-6">
+                  <p className="text-sm text-slate-400 mb-2">
+                    {new Date(correction.createdAt).toLocaleString()}
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-semibold text-blue-300">Original</h4>
+                      <p className="text-slate-300 text-sm truncate">{correction.originalText}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-green-300">Corrected</h4>
+                      <p className="text-slate-300 text-sm truncate">{correction.correctedText}</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-semibold text-green-300">Corrected</h4>
-                  <p className="text-slate-300 text-sm truncate">{correction.correctedText}</p>
+                <div className="bg-slate-700/50 px-6 py-3 flex justify-between items-center" onClick={(e) => e.stopPropagation()}>
+                  <button 
+                    onClick={() => setSelectedCorrection(correction)} 
+                    className="text-sm font-medium text-blue-400 hover:text-blue-300"
+                  >
+                    View details
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (correction.id) {
+                        setCorrectionToDelete({ id: correction.id });
+                      }
+                    }}
+                    className="text-sm font-medium text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!correction.id || isDeleting === correction.id}
+                  >
+                    {isDeleting === correction.id ? 'Deleting...' : 'Delete'}
+                  </button>
                 </div>
               </div>
-            </div>
-            <div className="bg-slate-700/50 px-6 py-3 flex justify-between items-center" onClick={(e) => e.stopPropagation()}>
-              <button 
-                onClick={() => setSelectedCorrection(correction)} 
-                className="text-sm font-medium text-blue-400 hover:text-blue-300"
-              >
-                View details
-              </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (correction.id) {
-                    setCorrectionToDelete({ id: correction.id });
-                  }
-                }}
-                className="text-sm font-medium text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!correction.id || isDeleting === correction.id}
-              >
-                {isDeleting === correction.id ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
+            ))}
           </div>
-        ))}
-      </div>
+        )}
+      </>
     );
   };
 
+
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-white mb-8">Correction History</h1>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-3xl font-bold text-white">Correction History</h1>
+        {(selectedRange !== 0 || dateRange.start || dateRange.end) && (
+          <div className="text-sm text-slate-400">
+            Showing {filteredCorrections.length} of {corrections.length} corrections
+          </div>
+        )}
+      </div>
       {renderContent()}
       <CorrectionDetailModal correction={selectedCorrection} onClose={() => setSelectedCorrection(null)} />
       <ConfirmDeleteModal 
