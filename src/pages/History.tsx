@@ -5,6 +5,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import { getUserCorrections, deleteCorrection } from '../services/correctionService';
 import { useAuth } from '../contexts/AuthContext';
 import { StoredCorrection } from '../types';
+import { CorrectionAccordion } from '../components/CorrectionAccordion';
 
 const CorrectionDetailModal = ({ correction, onClose }: { correction: StoredCorrection | null, onClose: () => void }) => {
   if (!correction) return null;
@@ -21,11 +22,11 @@ const CorrectionDetailModal = ({ correction, onClose }: { correction: StoredCorr
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black bg-opacity-50" />
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4 text-center">
+          <div className="flex min-h-full items-center justify-center p-4">
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
@@ -35,40 +36,61 @@ const CorrectionDetailModal = ({ correction, onClose }: { correction: StoredCorr
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-slate-800 p-6 text-left align-middle shadow-xl transition-all">
-                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-white">
-                  Correction Details
-                </Dialog.Title>
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <h4 className="font-semibold text-blue-300">Original Text</h4>
-                    <p className="text-slate-300 text-sm mt-1 whitespace-pre-wrap">{correction.originalText}</p>
+              <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-slate-800 text-left align-middle shadow-xl transition-all border border-slate-700/50">
+                <div className="p-6">
+                  <div className="flex items-center justify-between">
+                    <Dialog.Title as="h3" className="text-xl font-semibold leading-6 text-white">
+                      Correction Details
+                    </Dialog.Title>
+                    <button
+                      type="button"
+                      className="rounded-md text-slate-400 hover:text-white focus:outline-none"
+                      onClick={onClose}
+                    >
+                      <span className="sr-only">Close</span>
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-green-300">Corrected Text</h4>
-                    <p className="text-slate-300 text-sm mt-1 whitespace-pre-wrap">{correction.correctedText}</p>
+                  
+                  <div className="mt-6 space-y-6">
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-400 mb-2">ORIGINAL TEXT</h4>
+                      <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
+                        <p className="text-slate-200 whitespace-pre-wrap">{correction.originalText}</p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-400 mb-2">CORRECTED TEXT</h4>
+                      <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
+                        <p className="text-green-300 whitespace-pre-wrap">{correction.correctedText}</p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-medium text-slate-400">CORRECTIONS</h4>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300">
+                          {correction.corrections.length} {correction.corrections.length === 1 ? 'correction' : 'corrections'}
+                        </span>
+                      </div>
+                      <div className="bg-slate-900/50 rounded-lg border border-slate-700/50 overflow-hidden">
+                        <CorrectionAccordion corrections={correction.corrections} />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-amber-300">Changes</h4>
-                    <ul className="list-disc list-inside mt-1 space-y-2">
-                      {correction.corrections.map((c, index) => (
-                        <li key={index} className="text-slate-300 text-sm">
-                          <div className="font-medium">{c.shortExplanation}</div>
-                          <div className="text-slate-400 text-xs mt-0.5">{c.explanation}</div>
-                        </li>
-                      ))}
-                    </ul>
+                  
+                  <div className="mt-6 pt-6 border-t border-slate-700/50 flex justify-end">
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-slate-200 hover:text-white bg-slate-700/50 hover:bg-slate-600/50 rounded-md transition-colors"
+                      onClick={onClose}
+                    >
+                      Close
+                    </button>
                   </div>
-                </div>
-
-                <div className="mt-6">
-                  <button
-                    type="button"
-                    className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-                    onClick={onClose}
-                  >
-                    Close
-                  </button>
                 </div>
               </Dialog.Panel>
             </Transition.Child>
