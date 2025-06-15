@@ -1,7 +1,7 @@
 import { useEffect, useState, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { Dialog, Transition } from '@headlessui/react';
-import { getUserCorrections } from '../services/correctionService';
+import { getUserCorrections, deleteCorrection } from '../services/correctionService';
 import { useAuth } from '../contexts/AuthContext';
 import { StoredCorrection } from '../types';
 
@@ -79,8 +79,39 @@ export function History() {
   const [corrections, setCorrections] = useState<StoredCorrection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [selectedCorrection, setSelectedCorrection] = useState<StoredCorrection | null>(null);
   const { currentUser } = useAuth();
+
+  const handleDeleteCorrection = async (correctionId: string) => {
+    console.log('Deleting correction with ID:', correctionId);
+    if (!correctionId) {
+      console.error('No correction ID provided');
+      return;
+    }
+    
+    try {
+      console.log('Setting isDeleting state');
+      setIsDeleting(correctionId);
+      
+      console.log('Calling deleteCorrection service');
+      await deleteCorrection(correctionId);
+      
+      console.log('Updating local state after deletion');
+      // Remove the deleted correction from the local state
+      setCorrections(prev => {
+        const updated = prev.filter(c => c.id !== correctionId);
+        console.log('Updated corrections:', updated);
+        return updated;
+      });
+    } catch (error) {
+      console.error('Error in handleDeleteCorrection:', error);
+      setError('Failed to delete the correction. Please try again.');
+    } finally {
+      console.log('Clearing isDeleting state');
+      setIsDeleting(null);
+    }
+  };
 
   useEffect(() => {
     const loadCorrections = async () => {
@@ -163,9 +194,25 @@ export function History() {
                 </div>
               </div>
             </div>
-            <div className="bg-slate-700/50 px-6 py-3">
-              <button onClick={() => setSelectedCorrection(correction)} className="text-sm font-medium text-blue-400 hover:text-blue-300 w-full text-left">
+            <div className="bg-slate-700/50 px-6 py-3 flex justify-between items-center" onClick={(e) => e.stopPropagation()}>
+              <button 
+                onClick={() => setSelectedCorrection(correction)} 
+                className="text-sm font-medium text-blue-400 hover:text-blue-300"
+              >
                 View details
+              </button>
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (correction.id && window.confirm('Are you sure you want to delete this correction?')) {
+                    handleDeleteCorrection(correction.id);
+                  }
+                }}
+                className="text-sm font-medium text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!correction.id || isDeleting === correction.id}
+              >
+                {isDeleting === correction.id ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>

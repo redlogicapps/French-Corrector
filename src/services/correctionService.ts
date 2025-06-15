@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, orderBy, Timestamp, doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { SaveCorrectionParams, StoredCorrection, CorrectionResult } from '../types';
 import { correctFrenchText } from './geminiService';
@@ -50,6 +50,30 @@ export const saveCorrection = async (
     };
   } catch (error) {
     console.error('Error saving correction:', error);
+    throw error;
+  }
+};
+
+/**
+ * Gets all corrections for the current user.
+ * @returns A promise that resolves to an array of the user's corrections.
+ */
+/**
+ * Deletes a correction from Firestore.
+ * @param correctionId The ID of the correction to delete.
+ * @returns A promise that resolves when the deletion is complete.
+ */
+export const deleteCorrection = async (correctionId: string): Promise<void> => {
+  try {
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
+    // Delete the document with the given ID
+    await deleteDoc(doc(db, CORRECTIONS_COLLECTION, correctionId));
+  } catch (error) {
+    console.error('Error deleting correction:', error);
     throw error;
   }
 };
