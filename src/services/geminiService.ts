@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { saveCorrection as saveCorrectionToFirestore } from './correctionService';
+import { getCurrentModelName } from './configService';
 import { Correction, CorrectionResult } from '../types';
 
 // Initialize the Google Generative AI with the API key from environment variables
@@ -11,8 +12,7 @@ if (!apiKey) {
 // Initialize the Google Generative AI client
 const genAI = new GoogleGenerativeAI(apiKey);
 
-// The model to use for corrections - using Gemini 2.5 Flash (Preview 05-20)
-const MODEL_NAME = "gemini-2.5-flash-preview-05-20";
+// The model name will be loaded from configuration at runtime
 
 // Helper function for rate limiting
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -24,10 +24,11 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
  * @param delayMs Initial delay between retries in milliseconds (default: 1000ms)
  * @returns A promise that resolves to the corrected text and explanation
  */
-export const correctFrenchText = async (text: string, retries = 3, delayMs = 1000): Promise<CorrectionResult> => {
+export const correctFrenchText = async (text: string, userId: string, retries = 3, delayMs = 1000): Promise<CorrectionResult> => {
   for (let i = 0; i < retries; i++) {
     try {
-      const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+      const modelName = await getCurrentModelName(userId);
+      const model = genAI.getGenerativeModel({ model: modelName });
       
       // The prompt for the AI
       const prompt = `
@@ -72,12 +73,12 @@ export const correctFrenchText = async (text: string, retries = 3, delayMs = 100
         const responseData = JSON.parse(cleanResponse);
         
         // Validate the response structure
-        if (!responseData.correctedText) {
+        if (responseData.correctedText === undefined || responseData.correctedText === null) {
           throw new Error('Missing correctedText in response');
         }
         
         return {
-          correctedText: responseData.correctedText,
+          correctedText: responseData.correctedText || text,
           explanation: responseData.explanation || 'No explanation provided.',
           corrections: Array.isArray(responseData.corrections) 
             ? responseData.corrections 
