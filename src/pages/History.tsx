@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import { Dialog, Transition } from '@headlessui/react';
 import { getUserCorrections, deleteCorrection } from '../services/correctionService';
+import { getStudyAdviceFromCorrections } from '../services/geminiService';
 import { useAuth } from '../contexts/AuthContext';
 import { StoredCorrection } from '../types';
 import { CorrectionAccordion } from '../components/CorrectionAccordion';
@@ -395,6 +396,41 @@ export function History() {
   };
 
 
+  // AI Study Advice Modal state
+  const [isAdviceModalOpen, setIsAdviceModalOpen] = useState(false);
+  const [adviceLoading, setAdviceLoading] = useState(false);
+  const [aiAdvice, setAiAdvice] = useState<string | null>(null);
+  const [adviceError, setAdviceError] = useState<string | null>(null);
+
+  // Handler to get AI advice
+  const handleGetAdvice = async () => {
+    if (!currentUser) {
+      setAdviceError('You must be logged in to get study advice.');
+      return;
+    }
+    
+    setAdviceLoading(true);
+    setAdviceError(null);
+    setAiAdvice(null);
+    setIsAdviceModalOpen(true);
+    try {
+      // Aggregate all Correction[] from filteredCorrections
+      const allCorrections = filteredCorrections.flatMap(c => c.corrections ?? []);
+      if (allCorrections.length === 0) {
+        setAiAdvice('Aucune correction à analyser.');
+        setAdviceLoading(false);
+        return;
+      }
+      const advice = await getStudyAdviceFromCorrections(allCorrections, currentUser.uid);
+      setAiAdvice(advice);
+    } catch (err) {
+      console.error('Error getting study advice:', err);
+      setAdviceError('Erreur lors de la génération des conseils. Veuillez réessayer plus tard.');
+    } finally {
+      setAdviceLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -405,7 +441,86 @@ export function History() {
           </div>
         )}
       </div>
+      {/* AI Study Advice Button */}
+      <div className="flex justify-end mb-2">
+        <button
+          className="px-5 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={handleGetAdvice}
+          disabled={filteredCorrections.length === 0}
+        >
+          Get Study Advice from AI
+        </button>
+      </div>
       {renderContent()}
+      {/* AI Advice Modal */}
+      <Transition appear show={isAdviceModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-20" onClose={() => setIsAdviceModalOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+          </Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-slate-800 text-left align-middle shadow-xl transition-all border border-slate-700/50">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <Dialog.Title as="h3" className="text-xl font-semibold leading-6 text-white">
+                        Conseils personnalisés pour progresser
+                      </Dialog.Title>
+                      <button
+                        type="button"
+                        className="rounded-md text-slate-400 hover:text-white focus:outline-none"
+                        onClick={() => setIsAdviceModalOpen(false)}
+                      >
+                        <span className="sr-only">Close</span>
+                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="min-h-[120px]">
+                      {adviceLoading ? (
+                        <div className="flex justify-center items-center py-10">
+                          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-400"></div>
+                        </div>
+                      ) : adviceError ? (
+                        <div className="text-red-400">{adviceError}</div>
+                      ) : (
+                        <div className="whitespace-pre-line text-slate-200">{aiAdvice}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-end px-6 pb-4">
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-slate-200 hover:text-white bg-slate-700/50 hover:bg-slate-600/50 rounded-md transition-colors"
+                      onClick={() => setIsAdviceModalOpen(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
       <CorrectionDetailModal correction={selectedCorrection} onClose={() => setSelectedCorrection(null)} />
       <ConfirmDeleteModal 
         isOpen={!!correctionToDelete}

@@ -22,6 +22,34 @@ if (!apiKey) {
 // Initialize the Google Generative AI client
 export const genAI = new GoogleGenerativeAI(apiKey);
 
+/**
+ * Analyzes a list of corrections and returns personalized study advice as a French teacher would.
+ * @param corrections Array of correction objects (with mistake and correction/explanation fields).
+ * @param userId The ID of the current user (to get their selected model)
+ * @returns Promise<string> - AI-generated study advice.
+ */
+export const getStudyAdviceFromCorrections = async (corrections: Correction[], userId: string): Promise<string> => {
+  if (!corrections || corrections.length === 0) {
+    return 'No corrections to analyze.';
+  }
+
+  // Get the user's selected model
+  const modelName = await getCurrentModelName(userId);
+
+  // Prepare a summary of mistakes for the AI
+  const correctionSummaries = corrections.map((corr, idx) => {
+    return `Erreur ${idx + 1} :\nTexte original : ${corr.original}\nCorrection : ${corr.corrected}\nExplication : ${corr.explanation || corr.shortExplanation || ''}`;
+  }).join('\n\n');
+
+  const prompt = `Tu es un professeur de français expérimenté. Voici une liste d'erreurs faites par un étudiant dans ses écrits, avec les corrections et explications. Analyse ces erreurs et donne des conseils personnalisés sur ce que l'étudiant devrait étudier ou pratiquer pour améliorer son écriture en français. Sois précis, bienveillant, et donne des axes de travail concrets (grammaire, conjugaison, vocabulaire, orthographe, etc).\n\n${correctionSummaries}\n\nQuels sont tes conseils ?`;
+
+  // Use the user's selected model
+  const model = genAI.getGenerativeModel({ model: modelName });
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  return response.text();
+};
+
 // Cache for available models
 let availableModelsCache: GeminiModel[] | null = null;
 
