@@ -16,7 +16,6 @@
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",
     "@react-firebase/firestore": "^0.5.5",
-    "@types/date-fns": "^2.5.3",
     "date-fns": "^4.1.0",
     "firebase": "^11.9.1",
     "react": "^19.1.0",

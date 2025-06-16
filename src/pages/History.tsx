@@ -6,7 +6,8 @@ import { getUserCorrections, deleteCorrection } from '../services/correctionServ
 import { useAuth } from '../contexts/AuthContext';
 import { StoredCorrection } from '../types';
 import { CorrectionAccordion } from '../components/CorrectionAccordion';
-import { format as formatDate, subDays, startOfDay, endOfDay, isWithinInterval, isValid } from 'date-fns';
+import { format as formatDate, subDays, startOfDay, endOfDay, isValid } from 'date-fns';
+import { isWithinInterval } from 'date-fns';
 
 const CorrectionDetailModal = ({ correction, onClose }: { correction: StoredCorrection | null, onClose: () => void }) => {
   if (!correction) return null;
