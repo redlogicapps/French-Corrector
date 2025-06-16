@@ -33,14 +33,8 @@ export const Welcome: React.FC = () => {
             <p className="mt-6 text-lg leading-8 text-slate-300">
               Notre correcteur IA vous aide à produire des textes impeccables. Fini les fautes de grammaire, d'orthographe ou de style.
             </p>
-            <div className="mt-10 flex items-center justify-center gap-x-6">
-              <Link
-                to="/signup"
-                className="rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-              >
-                Commencer gratuitement
-              </Link>
-              <Link to="/login" className="text-sm font-semibold leading-6 text-slate-300 hover:text-white">
+            <div className="mt-10 flex items-center justify-center">
+              <Link to="/login" className="text-lg font-semibold leading-6 text-blue-400 hover:text-blue-300">
                 Se connecter <span aria-hidden="true">→</span>
               </Link>
             </div>
@@ -85,14 +79,8 @@ export const Welcome: React.FC = () => {
             <br />
             Commencez dès aujourd'hui.
           </h2>
-          <div className="mt-10 flex items-center gap-x-6 lg:mt-0 lg:flex-shrink-0">
-            <Link
-              to="/signup"
-              className="rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-            >
-              Créer un compte
-            </Link>
-            <Link to="/login" className="text-sm font-semibold leading-6 text-slate-300 hover:text-white">
+          <div className="mt-10 flex items-center lg:mt-0 lg:flex-shrink-0">
+            <Link to="/login" className="text-lg font-semibold leading-6 text-blue-400 hover:text-blue-300">
               Se connecter <span aria-hidden="true">→</span>
             </Link>
           </div>

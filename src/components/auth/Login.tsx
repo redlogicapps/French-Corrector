@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 export function Login() {
   const [error, setError] = useState('');
@@ -59,14 +59,7 @@ export function Login() {
           </div>
         </div>
 
-        <div className="mt-6 text-center">
-          <p className="text-sm text-slate-400">
-            Don't have an account?{' '}
-            <Link to="/signup" className="font-medium text-blue-400 hover:text-blue-300">
-              Sign up
-            </Link>
-          </p>
-        </div>
+
       </div>
     </div>
   );

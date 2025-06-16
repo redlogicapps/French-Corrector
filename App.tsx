@@ -3,7 +3,6 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { Login } from './src/components/auth/Login';
-import { Signup } from './src/components/auth/Signup';
 import { History } from './src/pages/History';
 import { Welcome } from './src/pages/Welcome';
 import { Dashboard } from './src/pages/Dashboard';
@@ -73,7 +72,6 @@ const AppRoutes: React.FC = () => {
       <Route element={<PublicPagesLayout />}>
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
       </Route>
 
       {/* Protected Routes */}
