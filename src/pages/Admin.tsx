@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getModelConfig, updateModelConfig, clearModelCache } from '../services/configService';
+import { getAvailableModels, GeminiModel } from '../services/geminiService';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Box, Button, Card, CardContent, CircularProgress, Container, TextField, Typography, Alert, Snackbar } from '@mui/material';
+import { Box, Button, Card, CardContent, CircularProgress, Container, MenuItem, Select, FormControl, InputLabel, Typography, Alert, Snackbar, Paper } from '@mui/material';
 
 const Admin: React.FC = () => {
   const { currentUser } = useAuth();
@@ -13,13 +14,27 @@ const Admin: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Available Gemini models
-  const availableModels = [
-    'gemini-1.5-pro-latest',
-    'gemini-1.5-flash',
-    'gemini-2.5-flash-preview-05-20',
-    'gemini-1.0-pro',
-  ];
+  const [availableModels, setAvailableModels] = useState<GeminiModel[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
+  const [modelsError, setModelsError] = useState('');
+
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        setIsLoadingModels(true);
+        const models = await getAvailableModels();
+        setAvailableModels(models);
+        setModelsError('');
+      } catch (err) {
+        console.error('Error loading models:', err);
+        setModelsError('Failed to load available models. Using default models.');
+      } finally {
+        setIsLoadingModels(false);
+      }
+    };
+
+    loadModels();
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -92,44 +107,84 @@ const Admin: React.FC = () => {
           </Typography>
           
           <Box mb={3}>
+            {isLoadingModels ? (
+              <Box display="flex" alignItems="center" gap={2} mb={2}>
+                <CircularProgress size={20} />
+                <Typography>Loading available models...</Typography>
+              </Box>
+            ) : modelsError ? (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                {modelsError}
+              </Alert>
+            ) : (
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id="model-select-label">Select Model</InputLabel>
+                <Select
+                  labelId="model-select-label"
+                  value={modelName}
+                  label="Select Model"
+                  onChange={(e) => setModelName(e.target.value as string)}
+                  disabled={isSaving}
+                  renderValue={(selected) => {
+                    const model = availableModels.find(m => m.name === selected);
+                    return model ? model.displayName : selected;
+                  }}
+                >
+                  {availableModels.map((model) => (
+                    <MenuItem key={model.name} value={model.name}>
+                      <Box>
+                        <Typography>{model.displayName}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {model.description}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+            
             <Typography variant="body2" color="text.secondary" gutterBottom>
               Current Model: <strong>{modelName}</strong>
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Last updated by: {currentUser?.email || 'system'}
             </Typography>
+            
+            {!isLoadingModels && !modelsError && availableModels.length > 0 && (
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'background.default', mb: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>Model Details:</Typography>
+                {availableModels
+                  .filter(m => m.name === modelName)
+                  .map(model => (
+                    <Box key={model.name}>
+                      <Typography variant="body2">
+                        <strong>Version:</strong> {model.version}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Input Tokens:</strong> {model.inputTokenLimit.toLocaleString()}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Output Tokens:</strong> {model.outputTokenLimit.toLocaleString()}
+                      </Typography>
+                    </Box>
+                  ))}
+              </Paper>
+            )}
           </Box>
           
           <Box mb={3}>
-            <TextField
-              select
-              fullWidth
-              label="Select Model"
-              value={modelName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setModelName(e.target.value)}
-              SelectProps={{ native: true }}
-              variant="outlined"
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleSave}
+              disabled={isSaving || isLoadingModels}
+              startIcon={isSaving ? <CircularProgress size={20} /> : null}
+              sx={{ mt: 2 }}
             >
-              {availableModels.map((model) => (
-                <option key={model} value={model}>
-                  {model}
-                </option>
-              ))}
-            </TextField>
-            <Typography variant="caption" color="text.secondary">
-              Select the Gemini model to use for text correction
-            </Typography>
+              {isSaving ? 'Saving...' : 'Save Model Configuration'}
+            </Button>
           </Box>
-          
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSave}
-            disabled={isSaving}
-            startIcon={isSaving ? <CircularProgress size={20} /> : null}
-          >
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </Button>
         </CardContent>
       </Card>
       

@@ -3,6 +3,16 @@ import { saveCorrection as saveCorrectionToFirestore } from './correctionService
 import { getCurrentModelName } from './configService';
 import { Correction, CorrectionResult } from '../types';
 
+export interface GeminiModel {
+  name: string;
+  version: string;
+  displayName: string;
+  description: string;
+  inputTokenLimit: number;
+  outputTokenLimit: number;
+  supportedGenerationMethods: string[];
+}
+
 // Initialize the Google Generative AI with the API key from environment variables
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 if (!apiKey) {
@@ -10,9 +20,56 @@ if (!apiKey) {
 }
 
 // Initialize the Google Generative AI client
-const genAI = new GoogleGenerativeAI(apiKey);
+export const genAI = new GoogleGenerativeAI(apiKey);
 
-// The model name will be loaded from configuration at runtime
+// Cache for available models
+let availableModelsCache: GeminiModel[] | null = null;
+
+/**
+ * Fetches available models from Google Gemini API
+ * @returns Promise with array of available models
+ */
+export const getAvailableModels = async (): Promise<GeminiModel[]> => {
+  if (availableModelsCache) {
+    return availableModelsCache;
+  }
+
+  try {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key=' + apiKey);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch models: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    if (!data.models) {
+      throw new Error('No models found in response');
+    }
+    
+    // Filter for Gemini models and transform the response
+    const geminiModels = data.models
+      .filter((model: any) => model.name.startsWith('models/gemini'))
+      .map((model: any) => ({
+        name: model.name.replace('models/', ''),
+        version: model.version || '',
+        displayName: model.displayName || model.name.replace('models/', ''),
+        description: model.description || '',
+        inputTokenLimit: model.inputTokenLimit || 0,
+        outputTokenLimit: model.outputTokenLimit || 0,
+        supportedGenerationMethods: model.supportedGenerationMethods || []
+      }));
+    
+    availableModelsCache = geminiModels;
+    return geminiModels;
+  } catch (error) {
+    console.error('Error fetching models:', error);
+    // Return default models as fallback
+    return [
+      { name: 'gemini-1.5-pro-latest', version: '1.5', displayName: 'Gemini 1.5 Pro', description: 'Latest Gemini 1.5 Pro model', inputTokenLimit: 128000, outputTokenLimit: 8192, supportedGenerationMethods: ['generateContent'] },
+      { name: 'gemini-1.5-flash', version: '1.5', displayName: 'Gemini 1.5 Flash', description: 'Fast and capable model', inputTokenLimit: 1000000, outputTokenLimit: 8192, supportedGenerationMethods: ['generateContent'] },
+      { name: 'gemini-1.0-pro', version: '1.0', displayName: 'Gemini 1.0 Pro', description: 'Gemini 1.0 Pro model', inputTokenLimit: 30720, outputTokenLimit: 2048, supportedGenerationMethods: ['generateContent'] },
+    ];
+  }
+};
 
 // Helper function for rate limiting
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
