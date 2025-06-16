@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { NAV_ITEMS } from '../types/navigation';
 
 export function Navbar() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -15,9 +15,19 @@ export function Navbar() {
     }
   };
 
-  const filteredNavItems = NAV_ITEMS.filter(
-    (item) => !item.requiresAuth || (item.requiresAuth && currentUser)
-  );
+  const filteredNavItems = NAV_ITEMS.filter((item) => {
+    // Show public items
+    if (!item.requiresAuth) return true;
+    
+    // For protected items, check if user is logged in
+    if (!currentUser) return false;
+    
+    // For admin-only items, check if user is admin
+    if (item.adminOnly) return isAdmin;
+    
+    // Show regular protected items to all authenticated users
+    return true;
+  });
 
   return (
     <nav className="bg-slate-800 shadow-lg">

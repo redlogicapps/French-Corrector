@@ -7,6 +7,7 @@ import { Signup } from './src/components/auth/Signup';
 import { History } from './src/pages/History';
 import { Welcome } from './src/pages/Welcome';
 import { Dashboard } from './src/pages/Dashboard';
+import Admin from './src/pages/Admin';
 import { AppLayout } from './src/components/layout/AppLayout';
 
 // Layout for authenticated users, redirecting to login if needed
@@ -15,6 +16,29 @@ const ProtectedPagesLayout: React.FC = () => {
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
+  return (
+    <AppLayout>
+      <Outlet />
+    </AppLayout>
+  );
+};
+
+// Layout for admin-only pages, redirecting to dashboard if not admin
+const AdminPagesLayout: React.FC = () => {
+  const { currentUser } = useAuth();
+  
+  // If not logged in, redirect to login
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // If logged in but not an admin, redirect to dashboard
+  // Note: You'll need to implement the isAdmin check based on your auth system
+  const isAdmin = true; // Replace with actual admin check
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
   return (
     <AppLayout>
       <Outlet />
@@ -56,6 +80,11 @@ const AppRoutes: React.FC = () => {
       <Route element={<ProtectedPagesLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/history" element={<History />} />
+      </Route>
+
+      {/* Admin-only Routes */}
+      <Route element={<AdminPagesLayout />}>
+        <Route path="/admin" element={<Admin />} />
       </Route>
 
       {/* Redirect root to the welcome page, which will then handle auth checks */}
