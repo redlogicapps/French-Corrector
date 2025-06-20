@@ -129,7 +129,8 @@ export const correctFrenchText = async (text: string, userId: string, retries = 
               "original": "original text that was changed",
               "corrected": "corrected version of the text",
               "shortExplanation": "short explanation of why this correction was made",
-              "explanation": "detailed explanation of why this correction was made"
+              "explanation": "detailed explanation of why this correction was made",
+              "type": "One of: Punctuation, Conjugation, Spelling, Comprehension, Grammar, or Other"
             },
             // Include all corrections in this array
           ]
@@ -166,7 +167,10 @@ export const correctFrenchText = async (text: string, userId: string, retries = 
           correctedText: responseData.correctedText || text,
           explanation: responseData.explanation || 'No explanation provided.',
           corrections: Array.isArray(responseData.corrections) 
-            ? responseData.corrections 
+            ? responseData.corrections.map((correction: any) => ({
+                ...correction,
+                type: (correction.type || 'Other') as Correction['type']
+              }))
             : []
         };
       } catch (e) {

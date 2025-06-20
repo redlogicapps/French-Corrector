@@ -1,11 +1,61 @@
-import { Fragment, useState } from 'react';
+import React, { Fragment, useState } from 'react';
 import { Transition } from '@headlessui/react';
-import { ChevronDownIcon } from '@heroicons/react/24/outline';
-import { Correction } from '../types';
+import { 
+  ChevronDownIcon,
+  ExclamationCircleIcon,
+  DocumentTextIcon,
+  PencilSquareIcon,
+  CheckCircleIcon,
+  LightBulbIcon,
+  QuestionMarkCircleIcon
+} from '@heroicons/react/24/outline';
+import { Correction, CorrectionType } from '../types';
+
+const typeConfig: Record<CorrectionType, { 
+  color: string;
+  bgColor: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = {
+  'Punctuation': {
+    color: 'text-purple-400',
+    bgColor: 'bg-purple-400/10',
+    icon: DocumentTextIcon
+  },
+  'Conjugation': {
+    color: 'text-amber-400',
+    bgColor: 'bg-amber-400/10',
+    icon: PencilSquareIcon
+  },
+  'Spelling': {
+    color: 'text-blue-400',
+    bgColor: 'bg-blue-400/10',
+    icon: CheckCircleIcon
+  },
+  'Comprehension': {
+    color: 'text-emerald-400',
+    bgColor: 'bg-emerald-400/10',
+    icon: LightBulbIcon
+  },
+  'Grammar': {
+    color: 'text-rose-400',
+    bgColor: 'bg-rose-400/10',
+    icon: ExclamationCircleIcon
+  },
+  'Other': {
+    color: 'text-slate-400',
+    bgColor: 'bg-slate-400/10',
+    icon: QuestionMarkCircleIcon
+  }
+};
 
 interface CorrectionAccordionProps {
   corrections: Correction[];
 }
+
+// Helper function to safely get type config with fallback to 'Other'
+const getTypeConfig = (type: CorrectionType) => {
+  return typeConfig[type] || typeConfig['Other'];
+};
 
 export const CorrectionAccordion: React.FC<CorrectionAccordionProps> = ({ corrections }) => {
   const [openItems, setOpenItems] = useState<Record<number, boolean>>({});
@@ -34,9 +84,15 @@ export const CorrectionAccordion: React.FC<CorrectionAccordionProps> = ({ correc
             onClick={() => toggleItem(index)}
             aria-expanded={!!openItems[index]}
           >
-            <span className="text-left text-blue-300 group-hover:text-blue-200 transition-colors">
-              {correction.shortExplanation}
-            </span>
+            <div className="flex items-center space-x-3">
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeConfig(correction.type).bgColor} ${getTypeConfig(correction.type).color}`}>
+                {React.createElement(getTypeConfig(correction.type).icon, { className: "h-3 w-3 mr-1" })}
+                {correction.type}
+              </span>
+              <span className="text-left text-blue-300 group-hover:text-blue-200 transition-colors">
+                {correction.shortExplanation}
+              </span>
+            </div>
             <ChevronDownIcon
               className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${openItems[index] ? 'transform rotate-180' : ''}`}
               aria-hidden="true"
@@ -56,7 +112,13 @@ export const CorrectionAccordion: React.FC<CorrectionAccordionProps> = ({ correc
               <div className="mt-3 bg-slate-900/40 p-3 rounded-md">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <p className="text-xs font-medium text-slate-400 mb-1">Original</p>
+                    <div className="flex items-center space-x-2 mb-1">
+                      <p className="text-xs font-medium text-slate-400">Original</p>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getTypeConfig(correction.type).bgColor} ${getTypeConfig(correction.type).color}`}>
+                        {React.createElement(getTypeConfig(correction.type).icon, { className: "h-3 w-3 mr-1" })}
+                        {correction.type}
+                      </span>
+                    </div>
                     <p className="text-amber-200">{correction.original}</p>
                   </div>
                   <div>

@@ -1,9 +1,19 @@
+// Types of corrections that can be made
+export type CorrectionType = 
+  | 'Punctuation' 
+  | 'Conjugation' 
+  | 'Spelling' 
+  | 'Comprehension' 
+  | 'Grammar' 
+  | 'Other';
+
 // Represents a single correction made by the AI
 export interface Correction {
   original: string;
   corrected: string;
   shortExplanation: string;
   explanation: string;
+  type: CorrectionType;
 }
 
 // The result from the Gemini API
