@@ -53,7 +53,20 @@ export const Dashboard: React.FC = () => {
 
         {/* Output Panel */}
         <div className="bg-slate-800 p-6 rounded-lg shadow-lg">
-          <h2 className="text-xl font-semibold text-green-300 mb-4">Corrected Text</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-green-300">Corrected Text</h2>
+            {result?.correctedText && (
+              <button
+                onClick={() => navigator.clipboard.writeText(result.correctedText)}
+                className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-700/50 transition-colors"
+                title="Copy to clipboard"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+              </button>
+            )}
+          </div>
           <div className="w-full h-64 p-4 bg-slate-900 border border-slate-700 rounded-md text-slate-300 overflow-auto">
             {isLoading ? (
               <div className="flex justify-center items-center h-full">

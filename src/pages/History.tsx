@@ -67,8 +67,21 @@ const CorrectionDetailModal = ({ correction, onClose }: { correction: StoredCorr
                     
                     <div>
                       <h4 className="text-sm font-medium text-slate-400 mb-2">CORRECTED TEXT</h4>
-                      <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
-                        <p className="text-green-300 whitespace-pre-wrap">{correction.correctedText}</p>
+                      <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 relative group">
+                        <p className="text-green-300 whitespace-pre-wrap pr-8">{correction.correctedText}</p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(correction.correctedText);
+                            // You could add a toast notification here if desired
+                          }}
+                          className="absolute top-2 right-2 p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors"
+                          title="Copy to clipboard"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
                     
@@ -361,7 +374,21 @@ export function History() {
                       <p className="text-slate-300 text-sm truncate">{correction.originalText}</p>
                     </div>
                     <div>
-                      <h4 className="font-semibold text-green-300">Corrected</h4>
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-semibold text-green-300">Corrected</h4>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(correction.correctedText);
+                          }}
+                          className="text-slate-400 hover:text-white ml-2"
+                          title="Copy to clipboard"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                          </svg>
+                        </button>
+                      </div>
                       <p className="text-slate-300 text-sm truncate">{correction.correctedText}</p>
                     </div>
                   </div>
