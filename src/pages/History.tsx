@@ -4,8 +4,11 @@ import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import { Dialog, Transition } from '@headlessui/react';
 import { getUserCorrections, deleteCorrection } from '../services/correctionService';
 import { getStudyAdviceFromCorrections } from '../services/geminiService';
+import type { StudyAdvice } from '../services/geminiService';
 import { useAuth } from '../contexts/AuthContext';
+import { fr } from 'date-fns/locale';
 import { StoredCorrection } from '../types';
+import StudyAdviceAccordion from '../components/StudyAdviceAccordion';
 import { CorrectionAccordion } from '../components/CorrectionAccordion';
 import { format as formatDate, subDays, startOfDay, endOfDay, isValid } from 'date-fns';
 import { isWithinInterval } from 'date-fns';
@@ -256,7 +259,7 @@ export function History() {
         <h2 className="text-lg font-medium text-white">Filter by Date</h2>
         <p className="text-sm text-slate-400">
           {selectedRange === 'custom' && dateRange.start && dateRange.end
-            ? `${isValid(dateRange.start) ? formatDate(dateRange.start, 'MMM d, yyyy') : ''} - ${isValid(dateRange.end) ? formatDate(dateRange.end, 'MMM d, yyyy') : ''}`
+            ? `${isValid(dateRange.start) ? formatDate(dateRange.start, 'MMM d, yyyy', { locale: fr }) : ''} - ${isValid(dateRange.end) ? formatDate(dateRange.end, 'MMM d, yyyy', { locale: fr }) : ''}`
             : selectedRange === 0
             ? 'All time'
             : `Last ${selectedRange} days`}
@@ -286,10 +289,10 @@ export function History() {
               <label className="block text-xs font-medium text-slate-400 mb-1">From</label>
               <input
                 type="date"
-                value={dateRange.start && isValid(dateRange.start) ? formatDate(dateRange.start, 'yyyy-MM-dd') : ''}
+                value={dateRange.start && isValid(dateRange.start) ? formatDate(dateRange.start, 'yyyy-MM-dd', { locale: fr }) : ''}
                 onChange={(e) => handleCustomDateChange('start', e.target.value)}
                 className="block w-full px-3 py-2 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-slate-700 text-white"
-                max={dateRange.end && isValid(dateRange.end) ? formatDate(dateRange.end, 'yyyy-MM-dd') : formatDate(new Date(), 'yyyy-MM-dd')}
+                max={dateRange.end && isValid(dateRange.end) ? formatDate(dateRange.end, 'yyyy-MM-dd', { locale: fr }) : formatDate(new Date(), 'yyyy-MM-dd', { locale: fr })}
               />
             </div>
             <div>
@@ -297,11 +300,11 @@ export function History() {
               <div className="flex gap-2">
                 <input
                   type="date"
-                  value={dateRange.end && isValid(dateRange.end) ? formatDate(dateRange.end, 'yyyy-MM-dd') : ''}
+                  value={dateRange.end && isValid(dateRange.end) ? formatDate(dateRange.end, 'yyyy-MM-dd', { locale: fr }) : ''}
                   onChange={(e) => handleCustomDateChange('end', e.target.value)}
                   className="block w-full px-3 py-2 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-slate-700 text-white"
-                  min={dateRange.start && isValid(dateRange.start) ? formatDate(dateRange.start, 'yyyy-MM-dd') : undefined}
-                  max={formatDate(new Date(), 'yyyy-MM-dd')}
+                  min={dateRange.start && isValid(dateRange.start) ? formatDate(dateRange.start, 'yyyy-MM-dd', { locale: fr }) : undefined}
+                  max={formatDate(new Date(), 'yyyy-MM-dd', { locale: fr })}
                 />
                 <button
                   onClick={clearDateFilter}
@@ -426,7 +429,7 @@ export function History() {
   // AI Study Advice Modal state
   const [isAdviceModalOpen, setIsAdviceModalOpen] = useState(false);
   const [adviceLoading, setAdviceLoading] = useState(false);
-  const [aiAdvice, setAiAdvice] = useState<string | null>(null);
+  const [aiAdvice, setAiAdvice] = useState<StudyAdvice | null>(null);
   const [adviceError, setAdviceError] = useState<string | null>(null);
 
   // Handler to get AI advice
@@ -444,7 +447,10 @@ export function History() {
       // Aggregate all Correction[] from filteredCorrections
       const allCorrections = filteredCorrections.flatMap(c => c.corrections ?? []);
       if (allCorrections.length === 0) {
-        setAiAdvice('Aucune correction à analyser.');
+        setAiAdvice({
+          summary: 'Aucune correction à analyser.',
+          corrections: []
+        });
         setAdviceLoading(false);
         return;
       }
@@ -504,42 +510,46 @@ export function History() {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-slate-800 text-left align-middle shadow-xl transition-all border border-slate-700/50">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <Dialog.Title as="h3" className="text-xl font-semibold leading-6 text-white">
-                        Conseils personnalisés pour progresser
-                      </Dialog.Title>
-                      <button
-                        type="button"
-                        className="rounded-md text-slate-400 hover:text-white focus:outline-none"
-                        onClick={() => setIsAdviceModalOpen(false)}
-                      >
-                        <span className="sr-only">Close</span>
-                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="min-h-[120px]">
-                      {adviceLoading ? (
-                        <div className="flex justify-center items-center py-10">
-                          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-400"></div>
-                        </div>
-                      ) : adviceError ? (
-                        <div className="text-red-400">{adviceError}</div>
-                      ) : (
-                        <div className="whitespace-pre-line text-slate-200">{aiAdvice}</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex justify-end px-6 pb-4">
+                <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-slate-800 p-6 text-left align-middle shadow-xl transition-all">
+                  <div className="flex justify-between items-center mb-6">
+                    <Dialog.Title
+                      as="h3"
+                      className="text-xl font-semibold leading-6 text-white flex items-center"
+                    >
+                      <svg className="h-6 w-6 text-blue-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                      Conseils d'étude personnalisés
+                    </Dialog.Title>
                     <button
                       type="button"
-                      className="px-4 py-2 text-sm font-medium text-slate-200 hover:text-white bg-slate-700/50 hover:bg-slate-600/50 rounded-md transition-colors"
+                      className="text-slate-400 hover:text-white"
                       onClick={() => setIsAdviceModalOpen(false)}
                     >
-                      Close
+                      <span className="sr-only">Fermer</span>
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <div className="max-h-[60vh] overflow-y-auto pr-2 -mr-2">
+                    {(aiAdvice || adviceLoading) && (
+                      <StudyAdviceAccordion 
+                        advice={aiAdvice}
+                        loading={adviceLoading} 
+                        error={adviceError} 
+                      />
+                    )}
+                  </div>
+
+                  <div className="mt-6 flex justify-end border-t border-slate-700 pt-4">
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-blue-300 hover:text-white bg-blue-900/30 hover:bg-blue-800/50 rounded-md border border-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-colors"
+                      onClick={() => setIsAdviceModalOpen(false)}
+                    >
+                      Fermer
                     </button>
                   </div>
                 </Dialog.Panel>

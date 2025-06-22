@@ -28,9 +28,26 @@ export const genAI = new GoogleGenerativeAI(apiKey);
  * @param userId The ID of the current user (to get their selected model)
  * @returns Promise<string> - AI-generated study advice.
  */
-export const getStudyAdviceFromCorrections = async (corrections: Correction[], userId: string): Promise<string> => {
+export interface StudyAdvice {
+  summary: string;
+  corrections: {
+    category: string;
+    title: string;
+    content: string;
+    examples: Array<{
+      original: string;
+      corrected: string;
+      explanation: string;
+    }>;
+  }[];
+}
+
+export const getStudyAdviceFromCorrections = async (corrections: Correction[], userId: string): Promise<StudyAdvice> => {
   if (!corrections || corrections.length === 0) {
-    return 'No corrections to analyze.';
+    return {
+      summary: 'Aucune correction à analyser.',
+      corrections: []
+    };
   }
 
   // Get the user's selected model
@@ -38,16 +55,71 @@ export const getStudyAdviceFromCorrections = async (corrections: Correction[], u
 
   // Prepare a summary of mistakes for the AI
   const correctionSummaries = corrections.map((corr, idx) => {
-    return `Erreur ${idx + 1} :\nTexte original : ${corr.original}\nCorrection : ${corr.corrected}\nExplication : ${corr.explanation || corr.shortExplanation || ''}`;
+    return `Erreur ${idx + 1}:\nTexte original: ${corr.original}\nCorrection: ${corr.corrected}\nExplication: ${corr.explanation || corr.shortExplanation || ''}`;
   }).join('\n\n');
 
-  const prompt = `Tu es un professeur de français expérimenté. Voici une liste d'erreurs faites par un étudiant dans ses écrits, avec les corrections et explications. Analyse ces erreurs et donne des conseils personnalisés sur ce que l'étudiant devrait étudier ou pratiquer pour améliorer son écriture en français. Sois précis, bienveillant, et donne des axes de travail concrets (grammaire, conjugaison, vocabulaire, orthographe, etc).\n\n${correctionSummaries}\n\nQuels sont tes conseils ?`;
+  const prompt = `Tu es un professeur de français expérimenté. Voici une liste d'erreurs faites par un étudiant dans ses écrits, avec les corrections et explications. 
 
-  // Use the user's selected model
-  const model = genAI.getGenerativeModel({ model: modelName });
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return response.text();
+Analyse ces erreurs et fournis une réponse structurée au format JSON avec les champs suivants :
+1. 'summary' : Un résumé concis de l'analyse (2-3 phrases maximum)
+2. 'corrections' : Un tableau d'objets contenant :
+   - 'category' : La catégorie de l'erreur (Grammaire, Orthographe, Conjugaison, Vocabulaire, etc.)
+   - 'title' : Un titre court pour ce type d'erreur
+   - 'content' : Une explication claire et détaillée de la règle
+   - 'examples' : Un tableau d'objets contenant les exemples d'erreurs avec 'original', 'correction' et 'explication'
+
+Sois précis, bienveillant, et donne des axes de travail concrets. Voici les erreurs à analyser :
+
+${correctionSummaries}`;
+
+  try {
+    // Use the user's selected model
+    const model = genAI.getGenerativeModel({ model: modelName });
+    const result = await model.generateContent(prompt);
+    
+    const response = await result.response;
+    const responseText = response.text();
+    
+    // Try to extract JSON from the response
+    try {
+      // Look for JSON in code blocks or as raw JSON
+      const jsonMatch = responseText.match(/```(?:json)?\n([\s\S]*?)\n```|({[\s\S]*})/);
+      const jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : responseText;
+      
+      // Parse the JSON and ensure it matches our interface
+      const parsedResponse = JSON.parse(jsonString);
+      
+      // Validate the response structure
+      if (!parsedResponse.summary || !Array.isArray(parsedResponse.corrections)) {
+        throw new Error('Invalid response structure from AI');
+      }
+      
+      return parsedResponse as StudyAdvice;
+    } catch (error) {
+      console.error('Error parsing AI response:', error);
+      // Fallback to a simple text response if JSON parsing fails
+      return {
+        summary: 'Analyse des erreurs terminée.',
+        corrections: [{
+          category: 'Général',
+          title: 'Conseils généraux',
+          content: responseText,
+          examples: []
+        }]
+      };
+    }
+  } catch (error) {
+    console.error('Error getting study advice:', error);
+    return {
+      summary: 'Une erreur est survenue lors de l\'analyse.',
+      corrections: [{
+        category: 'Erreur',
+        title: 'Erreur technique',
+        content: 'Impossible de générer des conseils d\'étude pour le moment. Veuillez réessayer plus tard.',
+        examples: []
+      }]
+    };
+  }
 };
 
 // Cache for available models
