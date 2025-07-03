@@ -134,6 +134,8 @@ export function History() {
   const [filteredCorrections, setFilteredCorrections] = useState<StoredCorrection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [selectedCorrection, setSelectedCorrection] = useState<StoredCorrection | null>(null);
   const [correctionToDelete, setCorrectionToDelete] = useState<{ id: string } | null>(null);
@@ -171,6 +173,7 @@ export function History() {
 
   // Always update filtered corrections when any filter changes
   useEffect(() => {
+    setCurrentPage(1); // Reset to first page when filters change
     if (!corrections.length) {
       setFilteredCorrections([]);
       return;
@@ -320,6 +323,110 @@ export function History() {
     </div>
   );
 
+  // Calculate pagination
+  const totalItems = selectedRange !== 0 || dateRange.start || dateRange.end ? filteredCorrections.length : corrections.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = (selectedRange !== 0 || dateRange.start || dateRange.end ? filteredCorrections : corrections)
+    .slice(startIndex, endIndex);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    // Scroll to top when changing pages
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex items-center justify-between">
+        <div className="flex-1 flex items-center justify-between">
+        <div className="sm:hidden">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className={`relative inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium ${currentPage === 1 ? 'text-slate-500 cursor-not-allowed' : 'text-blue-300 hover:text-white'}`}
+          >
+            Previous
+          </button>
+        </div>
+        <div className="hidden sm:block">
+          <p className="text-sm text-slate-400">
+            Page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+          </p>
+        </div>
+        <div className="sm:hidden">
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className={`relative inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium ${currentPage === totalPages ? 'text-slate-500 cursor-not-allowed' : 'text-blue-300 hover:text-white'}`}
+          >
+            Next
+          </button>
+        </div>
+        <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-end gap-4">
+          <div className="text-sm text-slate-400">
+            Showing <span className="font-medium">{Math.min(startIndex + 1, totalItems)}</span> to{' '}
+            <span className="font-medium">{Math.min(endIndex, totalItems)}</span> of{' '}
+            <span className="font-medium">{totalItems}</span> results
+          </div>
+          <div className="flex-shrink-0">
+            <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-700 hover:bg-slate-700 focus:z-20 focus:outline-offset-0 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:text-white'}`}
+              >
+                <span className="sr-only">Previous</span>
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                </svg>
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                // Always show first page, last page, current page, and one page before and after current
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${currentPage === pageNum 
+                      ? 'bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 z-10' 
+                      : 'text-slate-300 ring-1 ring-inset ring-slate-700 hover:bg-slate-700 focus:outline-offset-0 hover:text-white'}`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-700 hover:bg-slate-700 focus:z-20 focus:outline-offset-0 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:text-white'}`}
+              >
+                <span className="sr-only">Next</span>
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </div>
+    );
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -342,7 +449,7 @@ export function History() {
     return (
       <>
         {renderFilterBar()}
-        {displayCorrections.length === 0 ? (
+        {currentItems.length === 0 ? (
           <div className="text-center py-16">
             <svg className="mx-auto h-12 w-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -364,8 +471,9 @@ export function History() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayCorrections.map((correction) => (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {currentItems.map((correction) => (
               <div key={correction.id} className="bg-slate-800 rounded-lg shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300">
                 <div className="p-6">
                   <p className="text-sm text-slate-400 mb-2">
@@ -417,9 +525,19 @@ export function History() {
                     {isDeleting === correction.id ? 'Deleting...' : 'Delete'}
                   </button>
                 </div>
+                </div>
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <div className="border-t border-slate-700/50 pt-4 mt-2">
+                <div className="flex justify-center">
+                  <div className="text-sm text-slate-400">
+                    Page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </>
     );
@@ -466,23 +584,22 @@ export function History() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold text-white">Correction History</h1>
-        {(selectedRange !== 0 || dateRange.start || dateRange.end) && (
-          <div className="text-sm text-slate-400">
-            Showing {filteredCorrections.length} of {corrections.length} corrections
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-3xl font-bold text-white">Correction History</h1>
+          <button
+            className="px-5 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleGetAdvice}
+            disabled={filteredCorrections.length === 0}
+          >
+            Get Study Advice from AI
+          </button>
+        </div>
+        {totalPages > 1 && (
+          <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+            {renderPagination()}
           </div>
         )}
-      </div>
-      {/* AI Study Advice Button */}
-      <div className="flex justify-end mb-2">
-        <button
-          className="px-5 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={handleGetAdvice}
-          disabled={filteredCorrections.length === 0}
-        >
-          Get Study Advice from AI
-        </button>
       </div>
       {renderContent()}
       {/* AI Advice Modal */}
