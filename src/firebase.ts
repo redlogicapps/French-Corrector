@@ -20,6 +20,7 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase services
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-export const functions = getFunctions(app);
+// Initialize Cloud Functions with the correct region
+export const functions = getFunctions(app, 'us-central1');
 
 export default app;

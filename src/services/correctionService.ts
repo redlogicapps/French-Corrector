@@ -12,8 +12,11 @@ const CORRECTIONS_COLLECTION = 'corrections';
  */
 export const correctText = async (text: string): Promise<CorrectionResult> => {
   try {
-    // Directly call the Gemini service function
-    const result = await correctFrenchText(text);
+    // Get the current user ID if available
+    const userId = auth.currentUser?.uid;
+    
+    // Call the Gemini service function with the user ID
+    const result = await correctFrenchText(text, 3, 1000, userId);
     return result;
   } catch (error) {
     console.error('Error correcting text via Gemini service:', error);

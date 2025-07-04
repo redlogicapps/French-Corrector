@@ -22,7 +22,7 @@ const Admin: React.FC = () => {
     const loadModels = async () => {
       try {
         setIsLoadingModels(true);
-        const models = await getAvailableModels();
+        const models = await getAvailableModels(currentUser?.uid);
         setAvailableModels(models);
         setModelsError('');
       } catch (err) {
@@ -73,7 +73,9 @@ const Admin: React.FC = () => {
       setIsSaving(true);
       setError('');
       
-      await updateModelConfig(modelName.trim(), currentUser.uid);
+      // Strip 'models/' prefix if present
+      const cleanModelName = modelName.trim().replace(/^models\//, '');
+      await updateModelConfig(cleanModelName, currentUser.uid);
       clearModelCache(); // Clear the in-memory cache
       
       setSuccess('Model configuration updated successfully!');

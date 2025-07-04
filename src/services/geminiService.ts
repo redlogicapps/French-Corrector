@@ -1,7 +1,19 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { httpsCallable, HttpsCallableResult } from 'firebase/functions';
 import { saveCorrection as saveCorrectionToFirestore } from './correctionService';
-import { getCurrentModelName } from './configService';
 import { Correction, CorrectionResult } from '../types';
+import { functions } from '../firebase';
+
+// Define types for the Gemini API response
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+  }>;
+  [key: string]: any;
+}
 
 export interface GeminiModel {
   name: string;
@@ -13,19 +25,51 @@ export interface GeminiModel {
   supportedGenerationMethods: string[];
 }
 
-// Initialize the Google Generative AI with the API key from environment variables
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-if (!apiKey) {
-  throw new Error('Missing VITE_GEMINI_API_KEY in environment variables');
-}
+// Initialize Firebase callable function for Gemini proxy
+const geminiProxy = httpsCallable(functions, 'geminiProxy');
 
-// Initialize the Google Generative AI client
-export const genAI = new GoogleGenerativeAI(apiKey);
+// Helper function for rate limiting
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper: call Gemini via Cloud Function and extract plain text response
+const generateContentViaProxy = async (prompt: string, userId?: string): Promise<string> => {
+  try {
+    const requestData: any = { 
+      prompt: prompt,
+      options: {} // Add empty options object to match expected structure
+    };
+    
+    // Add userId to the request if provided
+    if (userId) {
+      requestData.userId = userId;
+    }
+    
+    const result = await geminiProxy(requestData) as HttpsCallableResult<GeminiResponse | string>;
+    
+    // Check if the response is in the expected format
+    if (typeof result.data === 'string') {
+      return result.data;
+    }
+    
+    // Handle the case where the response is an object with candidates
+    const geminiResponse = result.data as GeminiResponse;
+    if (geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text) {
+      return geminiResponse.candidates[0].content.parts[0].text!;
+    }
+    
+    // If we get here, the response format is unexpected
+    console.error('Unexpected response format from geminiProxy:', result.data);
+    throw new Error("Unexpected response format from Gemini proxy");
+  } catch (error: any) {
+    console.error('Error in generateContentViaProxy:', error);
+    throw new Error(error?.message || 'Failed to generate content');
+  }
+};
 
 /**
  * Analyzes a list of corrections and returns personalized study advice as a French teacher would.
  * @param corrections Array of correction objects (with mistake and correction/explanation fields).
- * @param userId The ID of the current user (to get their selected model)
+
  * @returns Promise<string> - AI-generated study advice.
  */
 export interface StudyAdvice {
@@ -42,16 +86,13 @@ export interface StudyAdvice {
   }[];
 }
 
-export const getStudyAdviceFromCorrections = async (corrections: Correction[], userId: string): Promise<StudyAdvice> => {
+export const getStudyAdviceFromCorrections = async (corrections: Correction[]): Promise<StudyAdvice> => {
   if (!corrections || corrections.length === 0) {
     return {
       summary: 'Aucune correction à analyser.',
       corrections: []
     };
   }
-
-  // Get the user's selected model
-  const modelName = await getCurrentModelName(userId);
 
   // Prepare a summary of mistakes for the AI
   const correctionSummaries = corrections.map((corr, idx) => {
@@ -73,12 +114,8 @@ Sois précis, bienveillant, et donne des axes de travail concrets. Voici les err
 ${correctionSummaries}`;
 
   try {
-    // Use the user's selected model
-    const model = genAI.getGenerativeModel({ model: modelName });
-    const result = await model.generateContent(prompt);
-    
-    const response = await result.response;
-    const responseText = response.text();
+    // Use the default model
+    const responseText = await generateContentViaProxy(prompt);
     
     // Try to extract JSON from the response
     try {
@@ -122,57 +159,62 @@ ${correctionSummaries}`;
   }
 };
 
-// Cache for available models
-let availableModelsCache: GeminiModel[] | null = null;
-
 /**
  * Fetches available models from Google Gemini API
+ * @param userId Optional user ID to include in the request
  * @returns Promise with array of available models
  */
-export const getAvailableModels = async (): Promise<GeminiModel[]> => {
-  if (availableModelsCache) {
-    return availableModelsCache;
+export const getAvailableModels = async (userId?: string): Promise<GeminiModel[]> => {
+  const requestData: any = { listModels: true };
+  if (userId) {
+    requestData.userId = userId;
   }
+  
+  const result = await geminiProxy(requestData) as HttpsCallableResult<{ models?: Array<{
+    name: string;
+    version: string;
+    displayName: string;
+    description: string;
+    inputTokenLimit: number;
+    outputTokenLimit: number;
+    supportedGenerationMethods: string[];
+  }> }>;
 
-  try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key=' + apiKey);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch models: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    if (!data.models) {
-      throw new Error('No models found in response');
-    }
-    
-    // Filter for Gemini models and transform the response
-    const geminiModels = data.models
-      .filter((model: any) => model.name.startsWith('models/gemini'))
-      .map((model: any) => ({
-        name: model.name.replace('models/', ''),
-        version: model.version || '',
-        displayName: model.displayName || model.name.replace('models/', ''),
-        description: model.description || '',
-        inputTokenLimit: model.inputTokenLimit || 0,
-        outputTokenLimit: model.outputTokenLimit || 0,
-        supportedGenerationMethods: model.supportedGenerationMethods || []
-      }));
-    
-    availableModelsCache = geminiModels;
-    return geminiModels;
-  } catch (error) {
-    console.error('Error fetching models:', error);
-    // Return default models as fallback
-    return [
-      { name: 'gemini-1.5-pro-latest', version: '1.5', displayName: 'Gemini 1.5 Pro', description: 'Latest Gemini 1.5 Pro model', inputTokenLimit: 128000, outputTokenLimit: 8192, supportedGenerationMethods: ['generateContent'] },
-      { name: 'gemini-1.5-flash', version: '1.5', displayName: 'Gemini 1.5 Flash', description: 'Fast and capable model', inputTokenLimit: 1000000, outputTokenLimit: 8192, supportedGenerationMethods: ['generateContent'] },
-      { name: 'gemini-1.0-pro', version: '1.0', displayName: 'Gemini 1.0 Pro', description: 'Gemini 1.0 Pro model', inputTokenLimit: 30720, outputTokenLimit: 2048, supportedGenerationMethods: ['generateContent'] },
-    ];
+  // If we got models in the response, map them to our interface
+  if (result.data?.models) {
+    return result.data.models.map(model => ({
+      name: model.name,
+      version: model.version || '1.0',
+      displayName: model.displayName || model.name,
+      description: model.description || `Model: ${model.name}`,
+      inputTokenLimit: model.inputTokenLimit || 8192,
+      outputTokenLimit: model.outputTokenLimit || 2048,
+      supportedGenerationMethods: model.supportedGenerationMethods || ['generateContent']
+    }));
   }
+  
+  // Default models in case the API call fails
+  return [
+    {
+      name: 'gemini-2.5-flash',
+      version: '1.0',
+      displayName: 'Gemini 2.5 Flash',
+      description: 'Fast and capable model for text generation',
+      inputTokenLimit: 1000000,
+      outputTokenLimit: 8192,
+      supportedGenerationMethods: ['generateContent']
+    },
+    {
+      name: 'gemini-2.5-pro',
+      version: '1.0',
+      displayName: 'Gemini 2.5 Pro',
+      description: 'Most capable model for complex tasks',
+      inputTokenLimit: 2000000,
+      outputTokenLimit: 8192,
+      supportedGenerationMethods: ['generateContent']
+    }
+  ];
 };
-
-// Helper function for rate limiting
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Corrects French text using the Gemini API with retry logic for rate limiting
@@ -181,12 +223,16 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
  * @param delayMs Initial delay between retries in milliseconds (default: 1000ms)
  * @returns A promise that resolves to the corrected text and explanation
  */
-export const correctFrenchText = async (text: string, userId: string, retries = 3, delayMs = 1000): Promise<CorrectionResult> => {
+/**
+ * Corrects French text using the Gemini API with retry logic for rate limiting
+ * @param text The text to correct
+ * @param retries Number of retry attempts (default: 3)
+ * @param delayMs Initial delay between retries in milliseconds (default: 1000ms)
+ * @returns A promise that resolves to the corrected text and explanation
+ */
+export const correctFrenchText = async (text: string, retries = 3, delayMs = 1000, userId?: string): Promise<CorrectionResult> => {
   for (let i = 0; i < retries; i++) {
     try {
-      const modelName = await getCurrentModelName(userId);
-      const model = genAI.getGenerativeModel({ model: modelName });
-      
       // The prompt for the AI
       const prompt = `
         Corrige le texte français suivant. Concentre-toi sur la grammaire, l'orthographe et la syntaxe pour un usage professionnel (e-mails, messages).
@@ -213,10 +259,8 @@ export const correctFrenchText = async (text: string, userId: string, retries = 
         - Be specific in your explanations
         - Only respond with the JSON object, nothing else`;
 
-      // Generate the response
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const responseText = response.text();
+      // Generate the response with the user's ID
+      const responseText = await generateContentViaProxy(prompt, userId);
       console.log(responseText);
       try {
         // Clean the response text by removing markdown code block syntax if present
@@ -256,7 +300,7 @@ export const correctFrenchText = async (text: string, userId: string, retries = 
         };
       }
     } catch (error: any) {
-      if (error.message.includes('429') && i < retries - 1) {
+      if (typeof error.message === 'string' && error.message.includes('429') && i < retries - 1) {
         // If rate limited, wait and retry with exponential backoff
         const waitTime = delayMs * Math.pow(2, i);
         console.log(`Rate limited. Waiting ${waitTime}ms before retry ${i + 1}/${retries}`);
