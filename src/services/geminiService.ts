@@ -257,6 +257,7 @@ export const correctFrenchText = async (text: string, retries = 3, delayMs = 100
         Important:
         - Include spelling, grammar, and punctuation corrections
         - Be specific in your explanations
+        - Respond only in french language
         - Only respond with the JSON object, nothing else`;
 
       // Generate the response with the user's ID
